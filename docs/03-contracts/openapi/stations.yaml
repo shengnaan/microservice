@@ -1,0 +1,1067 @@
+openapi: 3.0.3
+info:
+  title: Stations — учебная модель «Бери Заряд»
+  version: 1.0.0
+  description: Проектный контракт, а не работающий API. Семантика и права доступа уточнены в README контрактов.
+servers:
+- url: https://localhost:8002
+  description: Проектный адрес будущего стенда.
+security:
+- BearerAuth: []
+paths:
+  /v1/stations:
+    get:
+      summary: Получить каталог станций и доступность.
+      x-required-permission: stations:read
+      responses:
+        '200':
+          description: Текущее состояние.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Station'
+        '401':
+          description: Токен отсутствует или невалиден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет разрешения или ресурс принадлежит другому пользователю.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Ресурс не найден; отсутствие записи не доказывает отсутствия команды в полёте.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Известный конфликт бизнес-состояния или параметров.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Структура запроса некорректна.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Сервис недоступен. Результат изменяющего запроса неизвестен; требуется сверка.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      operationId: get_v1_stations
+  /v1/stations/{station_id}:
+    get:
+      summary: Получить текущее состояние станции.
+      x-required-permission: stations:read
+      responses:
+        '200':
+          description: Текущее состояние.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Station'
+        '401':
+          description: Токен отсутствует или невалиден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет разрешения или ресурс принадлежит другому пользователю.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Ресурс не найден; отсутствие записи не доказывает отсутствия команды в полёте.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Известный конфликт бизнес-состояния или параметров.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Структура запроса некорректна.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Сервис недоступен. Результат изменяющего запроса неизвестен; требуется сверка.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      operationId: get_v1_stations_station_id
+    parameters:
+    - name: station_id
+      in: path
+      required: true
+      schema:
+        type: string
+        description: Идентификатор ресурса.
+        format: uuid
+  /v1/dispenses/{rental_id}:
+    put:
+      summary: Атомарно зарезервировать готовое устройство на 120 секунд.
+      x-required-permission: stations:reserve
+      responses:
+        '201':
+          description: Резерв создан; сохранённый бизнес-отказ возвращается с 409.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dispense'
+        '200':
+          description: Повтор возвращает прежний результат.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dispense'
+        '401':
+          description: Токен отсутствует или невалиден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет разрешения или ресурс принадлежит другому пользователю.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Ресурс не найден; отсутствие записи не доказывает отсутствия команды в полёте.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Известный конфликт бизнес-состояния или параметров.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Структура запроса некорректна.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Сервис недоступен. Результат изменяющего запроса неизвестен; требуется сверка.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReservePowerbank'
+            example:
+              station_id: 00000003-1111-4111-8111-111111111111
+      operationId: put_v1_dispenses_rental_id
+    get:
+      summary: Уточнить состояние и доказательство результата выдачи.
+      x-required-permission: stations:operations:read
+      responses:
+        '200':
+          description: Текущее состояние.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dispense'
+              example:
+                rental_id: 00000001-1111-4111-8111-111111111111
+                operation_id: 00000007-1111-4111-8111-111111111111
+                station_id: 00000003-1111-4111-8111-111111111111
+                powerbank_id: 00000004-1111-4111-8111-111111111111
+                slot_id: '1'
+                status: ISSUED
+                version: 3
+                dispensed_at: '2026-11-08T10:00:00Z'
+                safe_to_refund: false
+                needs_attention: false
+                updated_at: '2026-11-08T12:00:00Z'
+        '401':
+          description: Токен отсутствует или невалиден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет разрешения или ресурс принадлежит другому пользователю.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Ресурс не найден; отсутствие записи не доказывает отсутствия команды в полёте.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Известный конфликт бизнес-состояния или параметров.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Структура запроса некорректна.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Сервис недоступен. Результат изменяющего запроса неизвестен; требуется сверка.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      operationId: get_v1_dispenses_rental_id
+    parameters:
+    - name: rental_id
+      in: path
+      required: true
+      schema:
+        type: string
+        description: Идентификатор ресурса.
+        format: uuid
+  /v1/dispenses/{rental_id}/issue:
+    post:
+      summary: Устойчиво поставить команду выдачи после успешной оплаты.
+      x-required-permission: stations:issue
+      responses:
+        '202':
+          description: Команда сохранена; физический результат ещё не подтверждён.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dispense'
+        '200':
+          description: Уже подтверждённая выдача без повторного эффекта.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dispense'
+        '401':
+          description: Токен отсутствует или невалиден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет разрешения или ресурс принадлежит другому пользователю.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Ресурс не найден; отсутствие записи не доказывает отсутствия команды в полёте.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Известный конфликт бизнес-состояния или параметров.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Структура запроса некорректна.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Сервис недоступен. Результат изменяющего запроса неизвестен; требуется сверка.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssuePowerbank'
+            example:
+              initial_payment_id: 00000013-1111-4111-8111-111111111111
+      operationId: post_v1_dispenses_rental_id_issue
+    parameters:
+    - name: rental_id
+      in: path
+      required: true
+      schema:
+        type: string
+        description: Идентификатор ресурса.
+        format: uuid
+  /v1/dispenses/{rental_id}/cancel:
+    post:
+      summary: Запретить позднюю выдачу и получить доказательство невыдачи.
+      x-required-permission: stations:cancel
+      responses:
+        '202':
+          description: Требуется подтверждение контроллера; возвращать деньги пока нельзя.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dispense'
+        '200':
+          description: Невыдача доказана и поздняя команда запрещена.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dispense'
+        '401':
+          description: Токен отсутствует или невалиден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет разрешения или ресурс принадлежит другому пользователю.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Ресурс не найден; отсутствие записи не доказывает отсутствия команды в полёте.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Известный конфликт бизнес-состояния или параметров.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Структура запроса некорректна.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Сервис недоступен. Результат изменяющего запроса неизвестен; требуется сверка.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      operationId: post_v1_dispenses_rental_id_cancel
+    parameters:
+    - name: rental_id
+      in: path
+      required: true
+      schema:
+        type: string
+        description: Идентификатор ресурса.
+        format: uuid
+  /v1/controllers/{station_id}/commands:
+    get:
+      summary: Получить неподтверждённые команды для своего устройства.
+      x-required-permission: controller:commands
+      responses:
+        '200':
+          description: Текущее состояние.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandBatch'
+        '401':
+          description: Токен отсутствует или невалиден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет разрешения или ресурс принадлежит другому пользователю.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Ресурс не найден; отсутствие записи не доказывает отсутствия команды в полёте.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Известный конфликт бизнес-состояния или параметров.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Структура запроса некорректна.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Сервис недоступен. Результат изменяющего запроса неизвестен; требуется сверка.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - ControllerAuth: []
+      operationId: get_v1_controllers_station_id_commands
+    parameters:
+    - name: station_id
+      in: path
+      required: true
+      schema:
+        type: string
+        description: Идентификатор ресурса.
+        format: uuid
+  /v1/controllers/{station_id}/events:
+    post:
+      summary: Передать устойчивые факты, в том числе накопленные офлайн.
+      x-required-permission: controller:events
+      responses:
+        '200':
+          description: Текущее состояние.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceAck'
+        '401':
+          description: Токен отсутствует или невалиден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет разрешения или ресурс принадлежит другому пользователю.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Ресурс не найден; отсутствие записи не доказывает отсутствия команды в полёте.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Известный конфликт бизнес-состояния или параметров.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Структура запроса некорректна.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Сервис недоступен. Результат изменяющего запроса неизвестен; требуется сверка.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceEventBatch'
+            example:
+              events:
+              - device_event_id: 00000010-1111-4111-8111-111111111111
+                device_seq: 15
+                kind: RETURNED
+                occurred_at: '2026-11-08T11:00:00Z'
+                powerbank_id: 00000004-1111-4111-8111-111111111111
+                slot_id: '2'
+      security:
+      - ControllerAuth: []
+      operationId: post_v1_controllers_station_id_events
+    parameters:
+    - name: station_id
+      in: path
+      required: true
+      schema:
+        type: string
+        description: Идентификатор ресурса.
+        format: uuid
+  /v1/controllers/{station_id}/heartbeat:
+    post:
+      summary: Передать наблюдаемую инвентаризацию и проверить часы.
+      x-required-permission: controller:heartbeat
+      responses:
+        '200':
+          description: Текущее состояние.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceAck'
+        '401':
+          description: Токен отсутствует или невалиден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет разрешения или ресурс принадлежит другому пользователю.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Ресурс не найден; отсутствие записи не доказывает отсутствия команды в полёте.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Известный конфликт бизнес-состояния или параметров.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Структура запроса некорректна.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Сервис недоступен. Результат изменяющего запроса неизвестен; требуется сверка.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Heartbeat'
+            example:
+              device_time: '2026-11-08T12:00:00Z'
+              slots:
+              - slot_id: '2'
+                state: CHARGING
+                powerbank_id: 00000004-1111-4111-8111-111111111111
+                charge_percent: 40
+              last_command_seq: 14
+      security:
+      - ControllerAuth: []
+      operationId: post_v1_controllers_station_id_heartbeat
+    parameters:
+    - name: station_id
+      in: path
+      required: true
+      schema:
+        type: string
+        description: Идентификатор ресурса.
+        format: uuid
+  /v1/returns/{rental_id}:
+    get:
+      summary: Прочитать подтверждённый факт возврата при сверке без брокера.
+      x-required-permission: stations:operations:read
+      responses:
+        '200':
+          description: Текущее состояние.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReturnFact'
+              example:
+                return_id: 00000005-1111-4111-8111-111111111111
+                rental_id: 00000001-1111-4111-8111-111111111111
+                powerbank_id: 00000004-1111-4111-8111-111111111111
+                station_id: 00000011-1111-4111-8111-111111111111
+                slot_id: '2'
+                returned_at: '2026-11-08T11:00:00Z'
+                device_event_id: 00000010-1111-4111-8111-111111111111
+                version: 1
+        '401':
+          description: Токен отсутствует или невалиден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет разрешения или ресурс принадлежит другому пользователю.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Ресурс не найден; отсутствие записи не доказывает отсутствия команды в полёте.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Известный конфликт бизнес-состояния или параметров.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Структура запроса некорректна.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Сервис недоступен. Результат изменяющего запроса неизвестен; требуется сверка.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      operationId: get_v1_returns_rental_id
+    parameters:
+    - name: rental_id
+      in: path
+      required: true
+      schema:
+        type: string
+        description: Идентификатор ресурса.
+        format: uuid
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Токен доступа.
+    ControllerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Доступ контроллера к собственной станции.
+  schemas:
+    Error:
+      type: object
+      description: Ошибка. code предназначен для программы, message — для человека.
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          description: Расширяемый машинный код ошибки.
+        message:
+          type: string
+          description: Пояснение на русском.
+        rental_id:
+          type: string
+          description: Связанная аренда.
+          format: uuid
+        current_status:
+          type: string
+          description: Текущее состояние ресурса, если известно.
+        trace_id:
+          type: string
+          description: Идентификатор трассировки.
+          format: uuid
+      required:
+      - code
+      - message
+    Slot:
+      type: object
+      description: Наблюдаемое состояние ячейки.
+      additionalProperties: false
+      properties:
+        slot_id:
+          type: string
+          description: Номер ячейки.
+        state:
+          type: string
+          description: Состояние.
+          enum:
+          - EMPTY
+          - CHARGING
+          - READY
+          - RESERVED
+          - UNKNOWN
+        powerbank_id:
+          type: string
+          description: Устройство, если присутствует.
+          format: uuid
+        charge_percent:
+          type: integer
+          description: Уровень заряда.
+          minimum: 0
+          maximum: 100
+      required:
+      - slot_id
+      - state
+    Station:
+      type: object
+      description: Доступность — подсказка; резервирование повторно проверяет состояние транзакционно.
+      additionalProperties: false
+      properties:
+        station_id:
+          type: string
+          description: Станция.
+          format: uuid
+        name:
+          type: string
+          description: Название.
+        address:
+          type: string
+          description: Адрес.
+        online:
+          type: boolean
+        ready_powerbanks:
+          type: integer
+          description: Количество готовых и синхронизированных устройств.
+          minimum: 0
+        free_slots:
+          type: integer
+          description: Количество свободных ячеек.
+          minimum: 0
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
+        updated_at:
+          type: string
+          description: Последнее подтверждённое состояние.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+      required:
+      - station_id
+      - name
+      - address
+      - online
+      - ready_powerbanks
+      - free_slots
+      - slots
+      - updated_at
+    ReservePowerbank:
+      type: object
+      description: Выбирает готовый пауэрбанк; уникальный бизнес-ключ — rental_id.
+      additionalProperties: false
+      properties:
+        station_id:
+          type: string
+          description: Станция.
+          format: uuid
+      required:
+      - station_id
+    IssuePowerbank:
+      type: object
+      description: Rentals отправляет только после подтверждённой успешной оплаты.
+      additionalProperties: false
+      properties:
+        initial_payment_id:
+          type: string
+          description: Идентификатор успешной попытки оплаты первого периода.
+          format: uuid
+      required:
+      - initial_payment_id
+    Dispense:
+      type: object
+      description: Выдача и доказательство её результата. Таймаут не означает невыдачу.
+      additionalProperties: false
+      properties:
+        rental_id:
+          type: string
+          description: Бизнес-ключ операции.
+          format: uuid
+        operation_id:
+          type: string
+          description: Операция выдачи.
+          format: uuid
+        station_id:
+          type: string
+          description: Станция; отсутствует у запрета, созданного до прихода резервирования.
+          format: uuid
+        powerbank_id:
+          type: string
+          description: Зарезервированное устройство.
+          format: uuid
+        slot_id:
+          type: string
+          description: Ячейка.
+        status:
+          type: string
+          description: Состояние.
+          enum:
+          - RESERVED
+          - ISSUING
+          - ISSUED
+          - CANCEL_REQUESTED
+          - CANCELLED
+          - EXPIRED
+          - REJECTED
+          - REQUIRES_REVIEW
+        version:
+          type: integer
+          description: Версия операции Stations.
+          minimum: 1
+        reserved_until:
+          type: string
+          description: Резерв на 120 секунд; после отправки команды срок не доказывает невыдачу.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+        dispensed_at:
+          type: string
+          description: Время фактической выдачи.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+        safe_to_refund:
+          type: boolean
+          description: Истина только при устойчивом доказательстве невыдачи и запрете позднего исполнения.
+        non_dispense_proof_id:
+          type: string
+          description: Идентификатор такого доказательства; обязателен по бизнес-правилу при safe_to_refund=true.
+          format: uuid
+        needs_attention:
+          type: boolean
+        updated_at:
+          type: string
+          description: Время изменения.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+      required:
+      - rental_id
+      - operation_id
+      - status
+      - version
+      - safe_to_refund
+      - needs_attention
+      - updated_at
+    ControllerCommand:
+      type: object
+      description: Контроллер сохраняет команду до исполнения; повтор не создаёт новую выдачу.
+      additionalProperties: false
+      properties:
+        command_id:
+          type: string
+          description: Уникальная команда.
+          format: uuid
+        command_seq:
+          type: integer
+          description: Порядок команд для станции.
+          minimum: 1
+        rental_id:
+          type: string
+          description: Аренда.
+          format: uuid
+        operation_id:
+          type: string
+          description: Операция.
+          format: uuid
+        kind:
+          type: string
+          description: Команда.
+          enum:
+          - DISPENSE
+          - CANCEL
+        powerbank_id:
+          type: string
+          description: Устройство.
+          format: uuid
+        slot_id:
+          type: string
+          description: Ячейка.
+        generation:
+          type: integer
+          description: Поколение для защиты от запоздалой выдачи.
+          minimum: 1
+        expires_at:
+          type: string
+          description: Крайний срок начала DISPENSE; для CANCEL не задаётся.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+      required:
+      - command_id
+      - command_seq
+      - rental_id
+      - operation_id
+      - kind
+      - generation
+    CommandBatch:
+      type: object
+      description: Команды выдаются повторно до устойчивого подтверждения исполнения.
+      additionalProperties: false
+      properties:
+        commands:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControllerCommand'
+        server_time:
+          type: string
+          description: Время для проверки часов.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+      required:
+      - commands
+      - server_time
+    DeviceEvent:
+      type: object
+      description: Устойчивый факт контроллера. RETURNED не требует знания rental_id на принимающей станции.
+      additionalProperties: false
+      properties:
+        device_event_id:
+          type: string
+          description: Сохраняется при повторной отправке.
+          format: uuid
+        device_seq:
+          type: integer
+          description: Устойчивый номер в журнале станции, не сбрасывается при перезапуске.
+          minimum: 1
+        kind:
+          type: string
+          description: Факт.
+          enum:
+          - DISPENSED
+          - NOT_DISPENSED
+          - RETURNED
+        occurred_at:
+          type: string
+          description: Время физического действия по синхронизированным часам.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+        powerbank_id:
+          type: string
+          description: Идентификатор считывается с устройства.
+          format: uuid
+        slot_id:
+          type: string
+          description: Ячейка.
+        command_id:
+          type: string
+          description: Обязателен для DISPENSED и NOT_DISPENSED.
+          format: uuid
+        operation_id:
+          type: string
+          description: Для результата команды.
+          format: uuid
+        generation:
+          type: integer
+          description: Поколение подтверждаемой команды.
+          minimum: 1
+      required:
+      - device_event_id
+      - device_seq
+      - kind
+      - occurred_at
+      - powerbank_id
+      - slot_id
+    DeviceEventBatch:
+      type: object
+      description: Контроллер повторяет пакет до подтверждения; события сначала фиксируются в Stations DB.
+      additionalProperties: false
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceEvent'
+          minItems: 1
+          maxItems: 100
+      required:
+      - events
+    DeviceAck:
+      type: object
+      description: Подтверждаются только устойчиво принятые события; семантический разбор может ожидать сверки.
+      additionalProperties: false
+      properties:
+        accepted_event_ids:
+          type: array
+          items:
+            type: string
+            description: Идентификатор события.
+            format: uuid
+        server_time:
+          type: string
+          description: Время сервера.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+      required:
+      - accepted_event_ids
+      - server_time
+    Heartbeat:
+      type: object
+      description: Инвентаризация не заменяет журнал выдач и возвратов.
+      additionalProperties: false
+      properties:
+        device_time:
+          type: string
+          description: Время контроллера.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
+        last_command_seq:
+          type: integer
+          description: Последняя записанная команда.
+          minimum: 0
+      required:
+      - device_time
+      - slots
+      - last_command_seq
+    ReturnFact:
+      type: object
+      description: Неизменяемый факт приёма устройства. Не переиздаёт устройство до закрытия предыдущего назначения.
+      additionalProperties: false
+      properties:
+        return_id:
+          type: string
+          description: Ключ факта возврата.
+          format: uuid
+        rental_id:
+          type: string
+          description: Назначение определяется Stations по powerbank_id.
+          format: uuid
+        powerbank_id:
+          type: string
+          description: Устройство.
+          format: uuid
+        station_id:
+          type: string
+          description: Станция возврата.
+          format: uuid
+        slot_id:
+          type: string
+          description: Ячейка.
+        returned_at:
+          type: string
+          description: Фактический приём.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+        device_event_id:
+          type: string
+          description: Первичный факт контроллера.
+          format: uuid
+        version:
+          type: integer
+          description: Версия факта/агрегата возврата.
+          minimum: 1
+      required:
+      - return_id
+      - rental_id
+      - powerbank_id
+      - station_id
+      - slot_id
+      - returned_at
+      - device_event_id
+      - version

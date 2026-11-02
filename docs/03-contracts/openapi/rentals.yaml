@@ -1,0 +1,471 @@
+openapi: 3.0.3
+info:
+  title: Rentals — учебная модель «Бери Заряд»
+  version: 1.0.0
+  description: Проектный контракт, а не работающий API. Семантика и права доступа уточнены в README контрактов.
+servers:
+- url: https://localhost:8000
+  description: Проектный адрес будущего стенда.
+security:
+- BearerAuth: []
+paths:
+  /v1/rentals:
+    post:
+      summary: Создать аренду и устойчиво запустить процесс.
+      x-required-permission: rentals:create:self
+      responses:
+        '202':
+          description: Новая аренда сохранена; выполнение продолжается в фоне.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rental'
+              example:
+                rental_id: 00000001-1111-4111-8111-111111111111
+                user_id: 00000002-1111-4111-8111-111111111111
+                pickup_station_id: 00000003-1111-4111-8111-111111111111
+                needs_attention: false
+                created_at: '2026-11-08T09:59:00Z'
+                updated_at: '2026-11-08T12:00:00Z'
+                status: PENDING
+                version: 1
+        '200':
+          description: Повтор прежнего запроса возвращает ту же аренду.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rental'
+        '401':
+          description: Токен отсутствует или невалиден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет разрешения или ресурс принадлежит другому пользователю.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Ресурс не найден; отсутствие записи не доказывает отсутствия команды в полёте.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Известный конфликт бизнес-состояния или параметров.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Структура запроса некорректна.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Сервис недоступен. Результат изменяющего запроса неизвестен; требуется сверка.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartRental'
+            example:
+              station_id: 00000003-1111-4111-8111-111111111111
+              tariff_id: 00000008-1111-4111-8111-111111111111
+              tariff_version: 1
+              payment_method_id: 00000012-1111-4111-8111-111111111111
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        description: UUID операции. Один ключ с другим телом даёт 409 REQUEST_CONFLICT.
+        schema:
+          type: string
+          description: Ключ идемпотентности.
+          format: uuid
+      operationId: post_v1_rentals
+    get:
+      summary: Просмотреть свои аренды.
+      x-required-permission: rentals:read:self
+      responses:
+        '200':
+          description: Текущее состояние.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Rental'
+        '401':
+          description: Токен отсутствует или невалиден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет разрешения или ресурс принадлежит другому пользователю.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Ресурс не найден; отсутствие записи не доказывает отсутствия команды в полёте.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Известный конфликт бизнес-состояния или параметров.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Структура запроса некорректна.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Сервис недоступен. Результат изменяющего запроса неизвестен; требуется сверка.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      operationId: get_v1_rentals
+  /v1/rentals/{rental_id}:
+    get:
+      summary: Прочитать аренду; сервисный доступ используется для сверки Billing.
+      x-required-permission: rentals:read:self или rentals:read:any
+      responses:
+        '200':
+          description: Текущее состояние.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rental'
+              example:
+                rental_id: 00000001-1111-4111-8111-111111111111
+                user_id: 00000002-1111-4111-8111-111111111111
+                status: RETURNED
+                version: 7
+                pickup_station_id: 00000003-1111-4111-8111-111111111111
+                tariff:
+                  tariff_id: 00000008-1111-4111-8111-111111111111
+                  version: 1
+                  period_seconds: 3600
+                  amount_minor: 10000
+                  currency: RUB
+                  active: true
+                powerbank_id: 00000004-1111-4111-8111-111111111111
+                dispensed_at: '2026-11-08T10:00:00Z'
+                returned_at: '2026-11-08T11:00:00Z'
+                return_station_id: 00000011-1111-4111-8111-111111111111
+                return_id: 00000005-1111-4111-8111-111111111111
+                needs_attention: false
+                created_at: '2026-11-08T09:59:00Z'
+                updated_at: '2026-11-08T12:00:00Z'
+        '401':
+          description: Токен отсутствует или невалиден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет разрешения или ресурс принадлежит другому пользователю.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Ресурс не найден; отсутствие записи не доказывает отсутствия команды в полёте.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Известный конфликт бизнес-состояния или параметров.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Структура запроса некорректна.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Сервис недоступен. Результат изменяющего запроса неизвестен; требуется сверка.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      operationId: get_v1_rentals_rental_id
+    parameters:
+    - name: rental_id
+      in: path
+      required: true
+      schema:
+        type: string
+        description: Идентификатор ресурса.
+        format: uuid
+  /v1/rentals/{rental_id}/reconcile:
+    post:
+      summary: Запланировать сверку без ручного назначения результата.
+      x-required-permission: rentals:reconcile
+      responses:
+        '202':
+          description: Текущее состояние.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scheduled'
+        '401':
+          description: Токен отсутствует или невалиден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет разрешения или ресурс принадлежит другому пользователю.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Ресурс не найден; отсутствие записи не доказывает отсутствия команды в полёте.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Известный конфликт бизнес-состояния или параметров.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Структура запроса некорректна.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Сервис недоступен. Результат изменяющего запроса неизвестен; требуется сверка.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      operationId: post_v1_rentals_rental_id_reconcile
+    parameters:
+    - name: rental_id
+      in: path
+      required: true
+      schema:
+        type: string
+        description: Идентификатор ресурса.
+        format: uuid
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Токен доступа.
+  schemas:
+    Error:
+      type: object
+      description: Ошибка. code предназначен для программы, message — для человека.
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          description: Расширяемый машинный код ошибки.
+        message:
+          type: string
+          description: Пояснение на русском.
+        rental_id:
+          type: string
+          description: Связанная аренда.
+          format: uuid
+        current_status:
+          type: string
+          description: Текущее состояние ресурса, если известно.
+        trace_id:
+          type: string
+          description: Идентификатор трассировки.
+          format: uuid
+      required:
+      - code
+      - message
+    Scheduled:
+      type: object
+      description: Задание устойчиво сохранено; результат ещё не известен.
+      additionalProperties: false
+      properties:
+        rental_id:
+          type: string
+          description: Аренда.
+          format: uuid
+        scheduled:
+          type: boolean
+          enum:
+          - true
+      required:
+      - rental_id
+      - scheduled
+    Tariff:
+      type: object
+      description: Неизменяемая версия интервального тарифа. Не баланс и не залог.
+      additionalProperties: false
+      properties:
+        tariff_id:
+          type: string
+          description: Тариф.
+          format: uuid
+        version:
+          type: integer
+          description: Версия.
+          minimum: 1
+        period_seconds:
+          type: integer
+          description: Продолжительность оплачиваемого периода.
+          minimum: 1
+        amount_minor:
+          type: integer
+          description: Цена периода в копейках.
+          minimum: 1
+        currency:
+          type: string
+          description: Валюта первой версии.
+          enum:
+          - RUB
+        active:
+          type: boolean
+          description: Разрешён для новых аренд.
+      required:
+      - tariff_id
+      - version
+      - period_seconds
+      - amount_minor
+      - currency
+      - active
+    StartRental:
+      type: object
+      description: 'Цена и пользователь не принимаются от клиента: пользователь определяется сервером, цена — Billing.'
+      additionalProperties: false
+      properties:
+        station_id:
+          type: string
+          description: Станция выдачи.
+          format: uuid
+        tariff_id:
+          type: string
+          description: Выбранный тариф.
+          format: uuid
+        tariff_version:
+          type: integer
+          description: Версия, показанная пользователю.
+          minimum: 1
+        payment_method_id:
+          type: string
+          description: Ранее привязанный способ оплаты.
+          format: uuid
+      required:
+      - station_id
+      - tariff_id
+      - tariff_version
+      - payment_method_id
+    Rental:
+      type: object
+      description: Состояние аренды; RETURNED не означает завершения финансовых расчётов.
+      additionalProperties: false
+      properties:
+        rental_id:
+          type: string
+          description: Ключ аренды и корреляции процесса.
+          format: uuid
+        user_id:
+          type: string
+          description: Владелец аренды, определённый сервером.
+          format: uuid
+        status:
+          type: string
+          description: Состояние процесса.
+          enum:
+          - PENDING
+          - RESERVING
+          - PAYING
+          - DISPENSING
+          - ACTIVE
+          - RECONCILING
+          - CANCELLING
+          - CANCELLED
+          - RETURNED
+          - REQUIRES_REVIEW
+        version:
+          type: integer
+          description: Версия агрегата Rentals.
+          minimum: 1
+        pickup_station_id:
+          type: string
+          description: Запрошенная станция выдачи.
+          format: uuid
+        tariff:
+          $ref: '#/components/schemas/Tariff'
+        powerbank_id:
+          type: string
+          description: Устройство после резервирования.
+          format: uuid
+        dispensed_at:
+          type: string
+          description: Подтверждённое время выдачи по журналу контроллера.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+        returned_at:
+          type: string
+          description: Подтверждённое время физического возврата; не время доставки события.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+        return_station_id:
+          type: string
+          description: Станция фактического возврата.
+          format: uuid
+        return_id:
+          type: string
+          description: Неизменяемый факт возврата.
+          format: uuid
+        non_dispense_proof_id:
+          type: string
+          description: Доказательство отсутствия выдачи и запрета поздней команды.
+          format: uuid
+        needs_attention:
+          type: boolean
+        created_at:
+          type: string
+          description: Время создания.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+        updated_at:
+          type: string
+          description: Время изменения.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+      required:
+      - rental_id
+      - user_id
+      - status
+      - version
+      - pickup_station_id
+      - needs_attention
+      - created_at
+      - updated_at
