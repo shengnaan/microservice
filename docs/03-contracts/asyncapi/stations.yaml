@@ -1,0 +1,597 @@
+asyncapi: 3.0.0
+info:
+  title: Stations — событийный API
+  version: 1.0.0
+  description: Контракт с позиции stations. Гарантия доставки — не менее одного раза; бизнес-эффекты идемпотентны.
+defaultContentType: application/json
+servers:
+  broker:
+    host: localhost:9093
+    protocol: kafka-secure
+    description: Проектный Kafka поверх TLS, не работающий адрес.
+    security:
+    - $ref: '#/components/securitySchemes/brokerCredentials'
+channels:
+  dispenseChanged:
+    address: station.dispense-changed.v1
+    description: 'Издатель stations; получатели: Rentals. Отдельный топик Kafka; получатели используют независимые
+      consumer groups.'
+    messages:
+      dispenseChanged:
+        $ref: '#/components/messages/dispenseChanged'
+    bindings:
+      kafka:
+        topic: station.dispense-changed.v1
+        partitions: 3
+        replicas: 1
+        topicConfiguration:
+          cleanup.policy:
+          - delete
+          retention.ms: 604800000
+        bindingVersion: 0.5.0
+  powerbankReturned:
+    address: powerbank.returned.v1
+    description: 'Издатель stations; получатели: Rentals. Отдельный топик Kafka; получатели используют независимые
+      consumer groups.'
+    messages:
+      powerbankReturned:
+        $ref: '#/components/messages/powerbankReturned'
+    bindings:
+      kafka:
+        topic: powerbank.returned.v1
+        partitions: 3
+        replicas: 1
+        topicConfiguration:
+          cleanup.policy:
+          - delete
+          retention.ms: 604800000
+        bindingVersion: 0.5.0
+  rentalChanged:
+    address: rental.state-changed.v1
+    description: 'Издатель rentals; получатели: Billing, Stations. Отдельный топик Kafka; получатели используют
+      независимые consumer groups.'
+    messages:
+      rentalChanged:
+        $ref: '#/components/messages/rentalChanged'
+    bindings:
+      kafka:
+        topic: rental.state-changed.v1
+        partitions: 3
+        replicas: 1
+        topicConfiguration:
+          cleanup.policy:
+          - delete
+          retention.ms: 604800000
+        bindingVersion: 0.5.0
+operations:
+  send_dispenseChanged:
+    action: send
+    channel:
+      $ref: '#/channels/dispenseChanged'
+    summary: Опубликовать из outbox с acks=all и enable.idempotence=true.
+    messages:
+    - $ref: '#/channels/dispenseChanged/messages/dispenseChanged'
+  send_powerbankReturned:
+    action: send
+    channel:
+      $ref: '#/channels/powerbankReturned'
+    summary: Опубликовать из outbox с acks=all и enable.idempotence=true.
+    messages:
+    - $ref: '#/channels/powerbankReturned/messages/powerbankReturned'
+  receive_rentalChanged:
+    action: receive
+    channel:
+      $ref: '#/channels/rentalChanged'
+    summary: Записать inbox и локальный эффект/сверку; затем зафиксировать offset.
+    messages:
+    - $ref: '#/channels/rentalChanged/messages/rentalChanged'
+    bindings:
+      kafka:
+        groupId:
+          type: string
+          enum:
+          - stations.events.v1
+        bindingVersion: 0.5.0
+components:
+  messages:
+    dispenseChanged:
+      name: DispenseChanged
+      title: Событие station.dispense-changed.v1
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/DispenseChanged'
+      correlationId:
+        location: $message.payload#/correlation_id
+      examples:
+      - name: Пример
+        payload:
+          event_id: 00000101-1111-4111-8111-111111111111
+          event_type: station.dispense-changed.v1
+          producer: stations
+          occurred_at: '2026-11-08T12:00:00Z'
+          correlation_id: 00000001-1111-4111-8111-111111111111
+          aggregate_id: 00000007-1111-4111-8111-111111111111
+          aggregate_version: 3
+          data:
+            rental_id: 00000001-1111-4111-8111-111111111111
+            operation_id: 00000007-1111-4111-8111-111111111111
+            station_id: 00000003-1111-4111-8111-111111111111
+            powerbank_id: 00000004-1111-4111-8111-111111111111
+            slot_id: '1'
+            status: ISSUED
+            version: 3
+            dispensed_at: '2026-11-08T10:00:00Z'
+            safe_to_refund: false
+            needs_attention: false
+            updated_at: '2026-11-08T12:00:00Z'
+      bindings:
+        kafka:
+          key:
+            type: string
+            format: uuid
+            description: Ключ записи равен rental_id, то есть payload.correlation_id.
+          bindingVersion: 0.5.0
+    powerbankReturned:
+      name: PowerbankReturned
+      title: Событие powerbank.returned.v1
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/PowerbankReturned'
+      correlationId:
+        location: $message.payload#/correlation_id
+      examples:
+      - name: Пример
+        payload:
+          event_id: 00000102-1111-4111-8111-111111111111
+          event_type: powerbank.returned.v1
+          producer: stations
+          occurred_at: '2026-11-08T12:00:00Z'
+          correlation_id: 00000001-1111-4111-8111-111111111111
+          aggregate_id: 00000005-1111-4111-8111-111111111111
+          aggregate_version: 1
+          data:
+            return_id: 00000005-1111-4111-8111-111111111111
+            rental_id: 00000001-1111-4111-8111-111111111111
+            powerbank_id: 00000004-1111-4111-8111-111111111111
+            station_id: 00000011-1111-4111-8111-111111111111
+            slot_id: '2'
+            returned_at: '2026-11-08T11:00:00Z'
+            device_event_id: 00000010-1111-4111-8111-111111111111
+            version: 1
+      bindings:
+        kafka:
+          key:
+            type: string
+            format: uuid
+            description: Ключ записи равен rental_id, то есть payload.correlation_id.
+          bindingVersion: 0.5.0
+    rentalChanged:
+      name: RentalChanged
+      title: Событие rental.state-changed.v1
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/RentalChanged'
+      correlationId:
+        location: $message.payload#/correlation_id
+      examples:
+      - name: Пример
+        payload:
+          event_id: 00000103-1111-4111-8111-111111111111
+          event_type: rental.state-changed.v1
+          producer: rentals
+          occurred_at: '2026-11-08T12:00:00Z'
+          correlation_id: 00000001-1111-4111-8111-111111111111
+          aggregate_id: 00000001-1111-4111-8111-111111111111
+          aggregate_version: 7
+          data:
+            rental_id: 00000001-1111-4111-8111-111111111111
+            user_id: 00000002-1111-4111-8111-111111111111
+            status: RETURNED
+            version: 7
+            pickup_station_id: 00000003-1111-4111-8111-111111111111
+            tariff:
+              tariff_id: 00000008-1111-4111-8111-111111111111
+              version: 1
+              period_seconds: 3600
+              amount_minor: 10000
+              currency: RUB
+              active: true
+            powerbank_id: 00000004-1111-4111-8111-111111111111
+            dispensed_at: '2026-11-08T10:00:00Z'
+            returned_at: '2026-11-08T11:00:00Z'
+            return_station_id: 00000011-1111-4111-8111-111111111111
+            return_id: 00000005-1111-4111-8111-111111111111
+            needs_attention: false
+            created_at: '2026-11-08T09:59:00Z'
+            updated_at: '2026-11-08T12:00:00Z'
+      bindings:
+        kafka:
+          key:
+            type: string
+            format: uuid
+            description: Ключ записи равен rental_id, то есть payload.correlation_id.
+          bindingVersion: 0.5.0
+  securitySchemes:
+    brokerCredentials:
+      type: userPassword
+      description: Отдельные учётные данные и права на топики и consumer groups.
+  schemas:
+    Tariff:
+      type: object
+      description: Неизменяемая версия интервального тарифа. Не баланс и не залог.
+      additionalProperties: false
+      properties:
+        tariff_id:
+          type: string
+          description: Тариф.
+          format: uuid
+        version:
+          type: integer
+          description: Версия.
+          minimum: 1
+        period_seconds:
+          type: integer
+          description: Продолжительность оплачиваемого периода.
+          minimum: 1
+        amount_minor:
+          type: integer
+          description: Цена периода в копейках.
+          minimum: 1
+        currency:
+          type: string
+          description: Валюта первой версии.
+          enum:
+          - RUB
+        active:
+          type: boolean
+          description: Разрешён для новых аренд.
+      required:
+      - tariff_id
+      - version
+      - period_seconds
+      - amount_minor
+      - currency
+      - active
+    Rental:
+      type: object
+      description: Состояние аренды; RETURNED не означает завершения финансовых расчётов.
+      additionalProperties: false
+      properties:
+        rental_id:
+          type: string
+          description: Ключ аренды и корреляции процесса.
+          format: uuid
+        user_id:
+          type: string
+          description: Владелец аренды, определённый сервером.
+          format: uuid
+        status:
+          type: string
+          description: Состояние процесса.
+          enum:
+          - PENDING
+          - RESERVING
+          - PAYING
+          - DISPENSING
+          - ACTIVE
+          - RECONCILING
+          - CANCELLING
+          - CANCELLED
+          - RETURNED
+          - REQUIRES_REVIEW
+        version:
+          type: integer
+          description: Версия агрегата Rentals.
+          minimum: 1
+        pickup_station_id:
+          type: string
+          description: Запрошенная станция выдачи.
+          format: uuid
+        tariff:
+          $ref: '#/components/schemas/Tariff'
+        powerbank_id:
+          type: string
+          description: Устройство после резервирования.
+          format: uuid
+        dispensed_at:
+          type: string
+          description: Подтверждённое время выдачи по журналу контроллера.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+        returned_at:
+          type: string
+          description: Подтверждённое время физического возврата; не время доставки события.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+        return_station_id:
+          type: string
+          description: Станция фактического возврата.
+          format: uuid
+        return_id:
+          type: string
+          description: Неизменяемый факт возврата.
+          format: uuid
+        non_dispense_proof_id:
+          type: string
+          description: Доказательство отсутствия выдачи и запрета поздней команды.
+          format: uuid
+        needs_attention:
+          type: boolean
+        created_at:
+          type: string
+          description: Время создания.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+        updated_at:
+          type: string
+          description: Время изменения.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+      required:
+      - rental_id
+      - user_id
+      - status
+      - version
+      - pickup_station_id
+      - needs_attention
+      - created_at
+      - updated_at
+    Dispense:
+      type: object
+      description: Выдача и доказательство её результата. Таймаут не означает невыдачу.
+      additionalProperties: false
+      properties:
+        rental_id:
+          type: string
+          description: Бизнес-ключ операции.
+          format: uuid
+        operation_id:
+          type: string
+          description: Операция выдачи.
+          format: uuid
+        station_id:
+          type: string
+          description: Станция; отсутствует у запрета, созданного до прихода резервирования.
+          format: uuid
+        powerbank_id:
+          type: string
+          description: Зарезервированное устройство.
+          format: uuid
+        slot_id:
+          type: string
+          description: Ячейка.
+        status:
+          type: string
+          description: Состояние.
+          enum:
+          - RESERVED
+          - ISSUING
+          - ISSUED
+          - CANCEL_REQUESTED
+          - CANCELLED
+          - EXPIRED
+          - REJECTED
+          - REQUIRES_REVIEW
+        version:
+          type: integer
+          description: Версия операции Stations.
+          minimum: 1
+        reserved_until:
+          type: string
+          description: Резерв на 120 секунд; после отправки команды срок не доказывает невыдачу.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+        dispensed_at:
+          type: string
+          description: Время фактической выдачи.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+        safe_to_refund:
+          type: boolean
+          description: Истина только при устойчивом доказательстве невыдачи и запрете позднего исполнения.
+        non_dispense_proof_id:
+          type: string
+          description: Идентификатор такого доказательства; обязателен по бизнес-правилу при safe_to_refund=true.
+          format: uuid
+        needs_attention:
+          type: boolean
+        updated_at:
+          type: string
+          description: Время изменения.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+      required:
+      - rental_id
+      - operation_id
+      - status
+      - version
+      - safe_to_refund
+      - needs_attention
+      - updated_at
+    ReturnFact:
+      type: object
+      description: Неизменяемый факт приёма устройства. Не переиздаёт устройство до закрытия предыдущего назначения.
+      additionalProperties: false
+      properties:
+        return_id:
+          type: string
+          description: Ключ факта возврата.
+          format: uuid
+        rental_id:
+          type: string
+          description: Назначение определяется Stations по powerbank_id.
+          format: uuid
+        powerbank_id:
+          type: string
+          description: Устройство.
+          format: uuid
+        station_id:
+          type: string
+          description: Станция возврата.
+          format: uuid
+        slot_id:
+          type: string
+          description: Ячейка.
+        returned_at:
+          type: string
+          description: Фактический приём.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+        device_event_id:
+          type: string
+          description: Первичный факт контроллера.
+          format: uuid
+        version:
+          type: integer
+          description: Версия факта/агрегата возврата.
+          minimum: 1
+      required:
+      - return_id
+      - rental_id
+      - powerbank_id
+      - station_id
+      - slot_id
+      - returned_at
+      - device_event_id
+      - version
+    DispenseChanged:
+      type: object
+      description: Версия описывает только один агрегат одного издателя; время не задаёт глобальный порядок.
+      additionalProperties: false
+      properties:
+        event_id:
+          type: string
+          description: Устойчивый идентификатор события outbox.
+          format: uuid
+        event_type:
+          type: string
+          description: Тип и версия события.
+          enum:
+          - station.dispense-changed.v1
+        producer:
+          type: string
+          description: Издатель; проверяется также ACL брокера.
+          enum:
+          - stations
+        occurred_at:
+          type: string
+          description: Время записи факта у издателя.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+        correlation_id:
+          type: string
+          description: rental_id.
+          format: uuid
+        aggregate_id:
+          type: string
+          description: Ключ ресурса издателя.
+          format: uuid
+        aggregate_version:
+          type: integer
+          description: Монотонная версия ресурса.
+          minimum: 1
+        data:
+          $ref: '#/components/schemas/Dispense'
+      required:
+      - event_id
+      - event_type
+      - producer
+      - occurred_at
+      - correlation_id
+      - aggregate_id
+      - aggregate_version
+      - data
+    PowerbankReturned:
+      type: object
+      description: Версия описывает только один агрегат одного издателя; время не задаёт глобальный порядок.
+      additionalProperties: false
+      properties:
+        event_id:
+          type: string
+          description: Устойчивый идентификатор события outbox.
+          format: uuid
+        event_type:
+          type: string
+          description: Тип и версия события.
+          enum:
+          - powerbank.returned.v1
+        producer:
+          type: string
+          description: Издатель; проверяется также ACL брокера.
+          enum:
+          - stations
+        occurred_at:
+          type: string
+          description: Время записи факта у издателя.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+        correlation_id:
+          type: string
+          description: rental_id.
+          format: uuid
+        aggregate_id:
+          type: string
+          description: Ключ ресурса издателя.
+          format: uuid
+        aggregate_version:
+          type: integer
+          description: Монотонная версия ресурса.
+          minimum: 1
+        data:
+          $ref: '#/components/schemas/ReturnFact'
+      required:
+      - event_id
+      - event_type
+      - producer
+      - occurred_at
+      - correlation_id
+      - aggregate_id
+      - aggregate_version
+      - data
+    RentalChanged:
+      type: object
+      description: Версия описывает только один агрегат одного издателя; время не задаёт глобальный порядок.
+      additionalProperties: false
+      properties:
+        event_id:
+          type: string
+          description: Устойчивый идентификатор события outbox.
+          format: uuid
+        event_type:
+          type: string
+          description: Тип и версия события.
+          enum:
+          - rental.state-changed.v1
+        producer:
+          type: string
+          description: Издатель; проверяется также ACL брокера.
+          enum:
+          - rentals
+        occurred_at:
+          type: string
+          description: Время записи факта у издателя.
+          format: date-time
+          pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$
+        correlation_id:
+          type: string
+          description: rental_id.
+          format: uuid
+        aggregate_id:
+          type: string
+          description: Ключ ресурса издателя.
+          format: uuid
+        aggregate_version:
+          type: integer
+          description: Монотонная версия ресурса.
+          minimum: 1
+        data:
+          $ref: '#/components/schemas/Rental'
+      required:
+      - event_id
+      - event_type
+      - producer
+      - occurred_at
+      - correlation_id
+      - aggregate_id
+      - aggregate_version
+      - data
